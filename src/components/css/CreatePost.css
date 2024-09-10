@@ -46,11 +46,6 @@ button:hover {
   background-color: #45a049;
 }
 
-/* button:disabled {
-  background-color: #45a049;
-  cursor: not-allowed;
-} */
-
 .create-post-textarea {
   width: 80%;
   height: 200px;
@@ -62,4 +57,10 @@ button:hover {
   font-size: 16px;
   margin-bottom: 16px;
   outline: none;
+}
+
+.create-post-container button[type="submit"] {
+  background-color: #4CAF50;
+  color: white;
+  /* other styles */
 }
