@@ -45,7 +45,7 @@ const CreatePost = () => {
 
   return (
     <div className="create-post-container">
-      <h1>Submit Your Anonymous Confession</h1>
+      <h1>Create Confession</h1>
       <form onSubmit={handleSubmit}>
         <textarea
           value={confession}
