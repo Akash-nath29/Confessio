@@ -46,10 +46,10 @@ button:hover {
   background-color: #45a049;
 }
 
-button:disabled {
-  background-color: #cccccc;
+/* button:disabled {
+  background-color: #45a049;
   cursor: not-allowed;
-}
+} */
 
 .create-post-textarea {
   width: 80%;
