@@ -3,35 +3,34 @@ import { supabase } from "./supabaseClient";
 import "./css/Hero.css";
 
 const Hero = () => {
-  const [confessions, setTodos] = useState([]);
+  const [confessions, setConfessions] = useState([]);
+
   useEffect(() => {
-    const fetchTodos = async () => {
+    const fetchConfessions = async () => {
       const { data, error } = await supabase
         .from("confession")
         .select("*")
         .order("created_at", { ascending: false });
-      if (error) console.error("Error fetching todos:", error);
-      else setTodos(data);
+      if (error) console.error("Error fetching confessions:", error);
+      else setConfessions(data);
     };
-    fetchTodos();
+    fetchConfessions();
   }, []);
+
   return (
-    <>
-      <div>
-        <h1 className="hero-brand">Confessions</h1>
-      </div>
-      <ul className="list-group">
+    <div className="container mt-4">
+      <h1 className="hero-brand text-center mb-4">Confessions</h1>
+      <ul className="confession-list">
         {confessions.map((confession) => (
-          <li
-            className="list-group-item d-flex align-items-center justify-content-between"
-            key={confession.uid}
-          >
-            <p>{confession.content}</p>
+          <li className="confession-item mb-3" key={confession.uid}>
+            <p className="confession-content">{confession.content}</p>
+            <p className="confession-timestamp">
+              {new Date(confession.created_at).toLocaleString()}
+            </p>
           </li>
         ))}
-        <li>Demo Confession</li>
       </ul>
-    </>
+    </div>
   );
 };
 
