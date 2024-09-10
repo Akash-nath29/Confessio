@@ -9,10 +9,9 @@ const App = () => {
     <Router>
       <Navbar />
       <Routes>
-        <Route exact path="/" element={<Hero />} />
+        <Route path="/" element={<Hero />} />
         <Route path="/create" element={<CreatePost />} />
         <Route path="/help" element={<Help />} />
-        {/* <Route path="/blogs" element={<DeleteTask />} /> */}
       </Routes>
       {/* <Footer /> */}
     </Router>
