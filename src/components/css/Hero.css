@@ -56,3 +56,13 @@ ul {
     padding-left: 0;
     margin: 10px;
 }
+
+.confession-list {
+    overflow-y: scroll;
+    margin-bottom: 90px;
+}
+
+.container {
+    overflow-y: scroll;
+    height: auto;
+}
