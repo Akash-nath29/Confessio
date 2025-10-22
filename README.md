@@ -1,50 +1,109 @@
-# Welcome to your Expo app 👋
+# Confessio — Anonymous Confessions
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+[![CI](https://github.com/akash-nath29/confessio/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Get started
+Fully anonymous confession app built with Expo (React Native) and Supabase. No login, no tracking. Post and read confessions with a local, non‑identifiable device codename.
 
-1. Install dependencies
+## MVP Features
 
-   ```bash
-   npm install
-   ```
+- Write a confession anonymously
+- Feed of all confessions (latest first)
+- About page with privacy and T&C
+- Privacy by design: no auth, no analytics, no tracking
 
-2. Start the app
+## Tech Stack
 
-   ```bash
-   npx expo start
-   ```
+- Frontend: React Native (Expo)
+- Backend: Supabase (PostgreSQL)
+- Architecture: Client inserts via Supabase SDK
 
-In the output, you'll find options to open the app in a
+## Quick start (Windows PowerShell)
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+```powershell
+# 1) Install dependencies
+npm install
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+# 2) Configure Supabase credentials (public anon key)
+# Copy .env.example to .env and fill your values
+cp .env.example .env
 
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+# 3) Start the app (choose iOS/Android/Web from the Expo dev menu)
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+The app uses Expo Router with three tabs: `Write`, `Feed`, and `About`.
 
-## Learn more
+Environment variables:
 
-To learn more about developing your project with Expo, look at the following resources:
+- `EXPO_PUBLIC_SUPABASE_URL` — your Supabase project URL
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY` — your Supabase anon key
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+These are public keys intended for use in client apps. Do not use service role keys.
 
-## Join the community
+## Supabase: Database schema
 
-Join our community of developers creating universal apps.
+Create a table named `confessions` with the following columns:
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```sql
+create table if not exists public.confessions (
+   id bigserial primary key,
+   created_at timestamptz not null default now(),
+   content text not null,
+   device_name text not null
+);
+
+-- Optional: enable Row Level Security and a permissive policy for inserts/selects
+alter table public.confessions enable row level security;
+
+create policy "Allow anonymous inserts" on public.confessions
+   for insert to anon with check (true);
+
+create policy "Allow anonymous reads" on public.confessions
+   for select to anon using (true);
+```
+
+In the Supabase Dashboard:
+
+- Set the table to be accessible by the `anon` role for insert and select.
+- Keep other operations (update/delete) restricted as needed.
+
+## Privacy by design
+
+- The app never asks for your name, email, or login.
+- A local, random codename is generated and stored securely on your device (e.g., `anon-brave-fox-1a2b`).
+- No analytics SDKs or third‑party trackers are included.
+- Only the confession text, timestamp, and the non‑identifiable codename are sent to Supabase.
+
+## Where things live
+
+- `app/write.tsx` → Write a confession
+- `app/feed.tsx` → Confession feed (latest first)
+- `app/about.tsx` → About + Privacy + T&C
+- `lib/supabase.js` → Supabase client (set your URL and anon key)
+- `lib/deviceName.js` → Generates and persists a random, non‑identifiable codename
+
+## Future ideas (post‑MVP)
+
+- Voting on confessions
+- Filters (funny / emotional / dark)
+- AI moderation
+- Hashtags / topics
+- Anonymous chat replies
+
+## Notes
+
+- This project intentionally avoids analytics. To measure high‑level metrics (e.g., confessions posted), prefer aggregate counts from your Supabase database instead of on‑device tracking.
+
+## Contributing
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md) before contributing.
+
+## Security
+
+If you discover a security vulnerability, please follow our [Security Policy](SECURITY.md).
+
+## License
+
+MIT © Akash Nath
+

@@ -1,24 +1,27 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
+import type { ComponentProps } from 'react';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Tabs
+      initialRouteName="write"
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ color, size }) => {
+          let iconName: ComponentProps<typeof Ionicons>['name'] = 'help-outline';
+          if (route.name === 'write') iconName = 'create-outline';
+          else if (route.name === 'feed') iconName = 'list-outline';
+          else if (route.name === 'about') iconName = 'information-circle-outline';
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+      })}
+    >
+      <Tabs.Screen name="write" options={{ title: 'Write' }} />
+      <Tabs.Screen name="feed" options={{ title: 'Feed' }} />
+      <Tabs.Screen name="about" options={{ title: 'About' }} />
+      {/* Hide these routes from the tab bar */}
+      <Tabs.Screen name="index" options={{ href: null }} />
+      <Tabs.Screen name="+not-found" options={{ href: null }} />
+    </Tabs>
   );
 }
