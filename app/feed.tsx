@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getAnonDeviceName } from '../lib/deviceName';
 import { supabase } from '../lib/supabase';
@@ -11,13 +11,19 @@ interface Confession {
   content: string;
   device_name: string | null;
   upvote_count: number;
+  reactions: Record<string, number>; 
+  userReaction?: string; 
 }
 
 export default function FeedScreen() {
   const [confessions, setConfessions] = useState<Confession[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [userReactions, setUserReactions] = useState<Map<number, string>>(new Map());
   const [upvotedIds, setUpvotedIds] = useState<Set<number>>(new Set());
   const [deviceName, setDeviceName] = useState<string>('');
+  const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
+  const [selectedConfessionId, setSelectedConfessionId] = useState<number | null>(null);
+  const [expandedReactionPanel, setExpandedReactionPanel] = useState<number | null>(null);
 
   useEffect(() => {
     getAnonDeviceName().then(setDeviceName);
@@ -25,13 +31,67 @@ export default function FeedScreen() {
 
   const fetchConfessions = useCallback(async () => {
     setRefreshing(true);
-    const { data, error } = await supabase
+    
+    const { data: confessionsData, error: confessionsError } = await supabase
       .from('confessions')
       .select('*')
       .order('created_at', { ascending: false });
-    if (!error && data) setConfessions(data as Confession[]);
+    
+    if (confessionsError || !confessionsData) {
+      setRefreshing(false);
+      return;
+    }
+
+    const { data: reactionsData, error: reactionsError } = await supabase
+      .from('reactions')
+      .select('confession_id, reaction_type');
+
+    const { data: upvotesData, error: upvotesError } = await supabase
+      .from('upvotes')
+      .select('confession_id');
+
+    const reactionsMap: Map<number, Record<string, number>> = new Map();
+    if (!reactionsError && reactionsData) {
+      reactionsData.forEach((reaction) => {
+        if (!reactionsMap.has(reaction.confession_id)) {
+          reactionsMap.set(reaction.confession_id, {});
+        }
+        const confessionReactions = reactionsMap.get(reaction.confession_id)!;
+        confessionReactions[reaction.reaction_type] = (confessionReactions[reaction.reaction_type] || 0) + 1;
+      });
+    }
+
+    const upvotesMap: Map<number, number> = new Map();
+    if (!upvotesError && upvotesData) {
+      upvotesData.forEach((upvote) => {
+        upvotesMap.set(upvote.confession_id, (upvotesMap.get(upvote.confession_id) || 0) + 1);
+      });
+    }
+
+    const confessionsWithReactions = confessionsData.map((confession) => ({
+      ...confession,
+      reactions: reactionsMap.get(confession.id) || {},
+      upvote_count: upvotesMap.get(confession.id) || 0,
+    }));
+
+    setConfessions(confessionsWithReactions as Confession[]);
     setRefreshing(false);
   }, []);
+
+  const fetchUserReactions = useCallback(async () => {
+    if (!deviceName) return;
+    const { data } = await supabase
+      .from('reactions')
+      .select('confession_id, reaction_type')
+      .eq('device_id', deviceName);
+    if (data) {
+      const reactionsMap = new Map<number, string>();
+      data.forEach((row) => {
+        reactionsMap.set(row.confession_id, row.reaction_type);
+      });
+      setUserReactions(reactionsMap);
+    }
+  }, [deviceName]);
 
   const fetchUserUpvotes = useCallback(async () => {
     if (!deviceName) return;
@@ -49,8 +109,11 @@ export default function FeedScreen() {
   }, [fetchConfessions]);
 
   useEffect(() => {
-    if (deviceName) fetchUserUpvotes();
-  }, [deviceName, fetchUserUpvotes]);
+    if (deviceName) {
+      fetchUserReactions();
+      fetchUserUpvotes();
+    }
+  }, [deviceName, fetchUserReactions, fetchUserUpvotes]);
 
   const handleUpvote = async (confessionId: number) => {
     if (!deviceName) return;
@@ -86,36 +149,198 @@ export default function FeedScreen() {
     }
   };
 
+  const handleReaction = async (confessionId: number, reactionType: string) => {
+    if (!deviceName) return;
+    const currentReaction = userReactions.get(confessionId);
+    const isSameReaction = currentReaction === reactionType;
+
+    const newUserReactions = new Map(userReactions);
+    if (isSameReaction) {
+      newUserReactions.delete(confessionId);
+    } else {
+      newUserReactions.set(confessionId, reactionType);
+    }
+    setUserReactions(newUserReactions);
+
+    setConfessions((prev) =>
+      prev.map((c) => {
+        if (c.id !== confessionId) return c;
+        
+        const newReactions = { ...c.reactions };
+        if (currentReaction && currentReaction !== reactionType) {
+          newReactions[currentReaction] = Math.max(0, (newReactions[currentReaction] || 0) - 1);
+          if (newReactions[currentReaction] === 0) delete newReactions[currentReaction];
+        }
+        if (!isSameReaction) {
+          newReactions[reactionType] = (newReactions[reactionType] || 0) + 1;
+        } else {
+          newReactions[reactionType] = Math.max(0, (newReactions[reactionType] || 0) - 1);
+          if (newReactions[reactionType] === 0) delete newReactions[reactionType];
+        }
+        
+        return { ...c, reactions: newReactions, userReaction: isSameReaction ? undefined : reactionType };
+      })
+    );
+
+    if (isSameReaction) {
+      await supabase
+        .from('reactions')
+        .delete()
+        .eq('confession_id', confessionId)
+        .eq('device_id', deviceName);
+    } else if (currentReaction) {
+      await supabase
+        .from('reactions')
+        .update({ reaction_type: reactionType })
+        .eq('confession_id', confessionId)
+        .eq('device_id', deviceName);
+    } else {
+      await supabase.from('reactions').insert({ 
+        confession_id: confessionId, 
+        device_id: deviceName, 
+        reaction_type: reactionType 
+      });
+    }
+  };
+
+  const openEmojiPicker = (confessionId: number) => {
+    setSelectedConfessionId(confessionId);
+    setEmojiPickerVisible(true);
+  };
+
+  const selectEmojiFromPicker = (emoji: string) => {
+    if (selectedConfessionId !== null) {
+      handleReaction(selectedConfessionId, emoji);
+    }
+    setEmojiPickerVisible(false);
+    setSelectedConfessionId(null);
+  };
+
+  const toggleReactionPanel = (confessionId: number) => {
+    setExpandedReactionPanel(expandedReactionPanel === confessionId ? null : confessionId);
+  };
+
   const renderItem = ({ item }: { item: Confession }) => {
+    const userReaction = userReactions.get(item.id);
     const hasUpvoted = upvotedIds.has(item.id);
+    const quickEmojis = ['👍', '❤️', '😂', '😢', '😮'];
+    const isPanelExpanded = expandedReactionPanel === item.id;
+    
+    const allReactionsWithCounts = Object.entries(item.reactions)
+      .filter(([_, count]) => count > 0)
+      .sort(([_, a], [__, b]) => b - a);
+
     return (
       <View style={styles.item}>
-        <View style={styles.itemContent}>
-          <View style={styles.upvoteSection}>
-            <Pressable
-              onPress={() => handleUpvote(item.id)}
-              style={[styles.upvoteButton, hasUpvoted && styles.upvoteButtonActive]}
-            >
-              <Ionicons
-                name={hasUpvoted ? 'arrow-up' : 'arrow-up-outline'}
-                size={20}
-                color={hasUpvoted ? '#ff4500' : '#666'}
-              />
-              <Text style={[styles.upvoteCount, hasUpvoted && styles.upvoteCountActive]}>
-                {item.upvote_count}
-              </Text>
-            </Pressable>
-          </View>
-          <View style={styles.textSection}>
-            <Text style={styles.content}>{item.content}</Text>
-            <Text style={styles.meta}>
-              — {item.device_name || 'Anonymous'} at {new Date(item.created_at).toLocaleString()}
+        <View style={styles.upvoteSection}>
+          <Pressable
+            onPress={() => handleUpvote(item.id)}
+            style={[styles.upvoteButton, hasUpvoted && styles.upvoteButtonActive]}
+          >
+            <Ionicons
+              name={hasUpvoted ? 'arrow-up' : 'arrow-up-outline'}
+              size={20}
+              color={hasUpvoted ? '#ff4500' : '#666'}
+            />
+            <Text style={[styles.upvoteCount, hasUpvoted && styles.upvoteCountActive]}>
+              {item.upvote_count}
             </Text>
+          </Pressable>
+        </View>
+        <View style={styles.contentContainer}>
+          <Text style={styles.content}>{item.content}</Text>
+          <Text style={styles.meta}>
+            — {item.device_name || 'Anonymous'} at {new Date(item.created_at).toLocaleString()}
+          </Text>
+          
+          {/* Show existing reactions with counts */}
+          {allReactionsWithCounts.length > 0 && (
+            <View style={styles.existingReactions}>
+              {allReactionsWithCounts.map(([emoji, count]) => (
+                <Pressable
+                  key={emoji}
+                  onPress={() => handleReaction(item.id, emoji)}
+                  style={[
+                    styles.existingReactionBubble,
+                    userReaction === emoji && styles.existingReactionBubbleActive
+                  ]}
+                >
+                  <Text style={styles.existingReactionEmoji}>{emoji}</Text>
+                  <Text style={[
+                    styles.existingReactionCount,
+                    userReaction === emoji && styles.existingReactionCountActive
+                  ]}>{count}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+          
+          {/* Collapsible Quick reaction buttons */}
+          {isPanelExpanded && (
+            <View style={styles.quickReactionsBar}>
+              {quickEmojis.map((emoji) => {
+                const isSelected = userReaction === emoji;
+                return (
+                  <Pressable
+                    key={emoji}
+                    onPress={() => {
+                      handleReaction(item.id, emoji);
+                      setExpandedReactionPanel(null);
+                    }}
+                    style={[styles.quickReactionButton, isSelected && styles.quickReactionButtonActive]}
+                  >
+                    <Text style={styles.quickReactionEmoji}>{emoji}</Text>
+                  </Pressable>
+                );
+              })}
+              <Pressable
+                onPress={() => openEmojiPicker(item.id)}
+                style={styles.moreReactionsButton}
+              >
+                <Ionicons name="add-circle-outline" size={24} color="#666" />
+              </Pressable>
+            </View>
+          )}
+          
+          {/* Toggle button in bottom-right corner */}
+          <View style={styles.toggleButtonContainer}>
+            <Pressable
+              onPress={() => toggleReactionPanel(item.id)}
+              style={styles.toggleReactionButton}
+            >
+              <Ionicons 
+                name={isPanelExpanded ? 'chevron-up' : 'chevron-down'} 
+                size={18} 
+                color="#666" 
+              />
+              <Text style={styles.toggleReactionText}>React</Text>
+            </Pressable>
           </View>
         </View>
       </View>
     );
   };
+
+  // All available emojis for the picker
+  const allEmojis = [
+    '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃',
+    '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙',
+    '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔',
+    '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥',
+    '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮',
+    '🤧', '🥵', '🥶', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐',
+    '😕', '😟', '🙁', '😮', '😯', '😲', '😳', '🥺', '😦', '😧',
+    '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓',
+    '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀',
+    '💩', '🤡', '👻', '👽', '🤖', '😺', '😸', '😹', '😻', '😼',
+    '😽', '🙀', '😿', '😾', '❤️', '🧡', '💛', '💚', '💙', '💜',
+    '🖤', '🤍', '🤎', '💔', '💕', '💖', '💗', '💘', '💝', '💞',
+    '👍', '👎', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙',
+    '👈', '👉', '👆', '👇', '☝️', '👋', '🤚', '🖐', '✋', '🖖',
+    '👏', '🙌', '👐', '🤲', '🤝', '🙏', '💪', '🦾', '🦿', '🦵',
+    '🔥', '💯', '💢', '💥', '💫', '💦', '💨', '🕳', '💬', '👁️',
+    '🗨', '🗯', '💭', '💤', '🎉', '🎊', '🎈', '🎁', '🏆', '🥇'
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -129,6 +354,36 @@ export default function FeedScreen() {
         }
         ListEmptyComponent={<Text style={styles.emptyText}>No confessions yet. Be the first!</Text>}
       />
+      
+      {/* Emoji Picker Modal */}
+      <Modal
+        visible={emojiPickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEmojiPickerVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.emojiPickerContainer}>
+            <View style={styles.emojiPickerHeader}>
+              <Text style={styles.emojiPickerTitle}>Choose a reaction</Text>
+              <Pressable onPress={() => setEmojiPickerVisible(false)}>
+                <Ionicons name="close" size={28} color="#333" />
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={styles.emojiGrid}>
+              {allEmojis.map((emoji) => (
+                <Pressable
+                  key={emoji}
+                  onPress={() => selectEmojiFromPicker(emoji)}
+                  style={styles.emojiPickerButton}
+                >
+                  <Text style={styles.emojiPickerEmoji}>{emoji}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -147,16 +402,13 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
-    overflow: 'hidden',
-  },
-  itemContent: {
     flexDirection: 'row',
-    padding: 14,
   },
   upvoteSection: {
     alignItems: 'center',
-    marginRight: 12,
-    paddingTop: 4,
+    paddingTop: 14,
+    paddingLeft: 12,
+    paddingRight: 8,
   },
   upvoteButton: {
     alignItems: 'center',
@@ -178,11 +430,146 @@ const styles = StyleSheet.create({
   upvoteCountActive: {
     color: '#ff4500',
   },
-  textSection: {
+  contentContainer: {
     flex: 1,
+    padding: 14,
   },
-  content: { fontSize: 16, color: '#111' },
-  meta: { fontSize: 12, color: '#666', marginTop: 8 },
-  emptyContainer: { flexGrow: 1, justifyContent: 'center', alignItems: 'center' },
+  content: { 
+    fontSize: 16, 
+    color: '#111',
+    marginBottom: 8,
+  },
+  meta: { 
+    fontSize: 12, 
+    color: '#666', 
+    marginBottom: 10,
+  },
+  existingReactions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 8,
+  },
+  existingReactionBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginRight: 6,
+    marginBottom: 6,
+  },
+  existingReactionBubbleActive: {
+    backgroundColor: '#e3f2fd',
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+  existingReactionEmoji: {
+    fontSize: 16,
+    marginRight: 4,
+  },
+  existingReactionCount: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+  },
+  existingReactionCountActive: {
+    color: '#2196F3',
+  },
+  quickReactionsBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    marginBottom: 4,
+  },
+  toggleButtonContainer: {
+    alignItems: 'flex-end',
+    marginTop: 4,
+  },
+  toggleReactionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    backgroundColor: '#f5f5f5',
+  },
+  toggleReactionText: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  quickReactionButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    marginRight: 8,
+  },
+  quickReactionButtonActive: {
+    backgroundColor: '#e3f2fd',
+  },
+  quickReactionEmoji: {
+    fontSize: 24,
+  },
+  moreReactionsButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    marginLeft: 'auto',
+  },
+  emptyContainer: { 
+    flexGrow: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
   emptyText: { color: '#888' },
+  
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  emojiPickerContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    paddingBottom: 20,
+  },
+  emojiPickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  emojiPickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  emojiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 16,
+  },
+  emojiPickerButton: {
+    width: '12.5%',
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiPickerEmoji: {
+    fontSize: 32,
+  },
 });
