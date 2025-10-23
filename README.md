@@ -5,10 +5,13 @@
 
 Fully anonymous confession app built with Expo (React Native) and Supabase. No login, no tracking. Post and read confessions with a local, non‑identifiable device codename.
 
-## MVP Features
+## Features
 
 - Write a confession anonymously
 - Feed of all confessions (latest first)
+- **Upvote system** - Vote on confessions you relate to
+- **Emoji reactions** - React with any emoji (👍❤️😂 and 100+ more)
+- **Collapsible UI** - Clean interface with expandable reaction panel
 - About page with privacy and T&C
 - Privacy by design: no auth, no analytics, no tracking
 
@@ -43,7 +46,9 @@ These are public keys intended for use in client apps. Do not use service role k
 
 ## Supabase: Database schema
 
-Create a table named `confessions` with the following columns:
+Create the following tables in your Supabase project:
+
+### Confessions Table
 
 ```sql
 create table if not exists public.confessions (
@@ -53,7 +58,7 @@ create table if not exists public.confessions (
    device_name text not null
 );
 
--- Optional: enable Row Level Security and a permissive policy for inserts/selects
+-- Enable Row Level Security
 alter table public.confessions enable row level security;
 
 create policy "Allow anonymous inserts" on public.confessions
@@ -63,10 +68,63 @@ create policy "Allow anonymous reads" on public.confessions
    for select to anon using (true);
 ```
 
-In the Supabase Dashboard:
+### Upvotes Table
 
-- Set the table to be accessible by the `anon` role for insert and select.
-- Keep other operations (update/delete) restricted as needed.
+```sql
+create table if not exists public.upvotes (
+   id bigserial primary key,
+   confession_id bigint references public.confessions(id) on delete cascade,
+   device_id text not null,
+   created_at timestamptz not null default now(),
+   unique(confession_id, device_id)
+);
+
+-- Enable Row Level Security
+alter table public.upvotes enable row level security;
+
+create policy "Allow anonymous upvote inserts" on public.upvotes
+   for insert to anon with check (true);
+
+create policy "Allow anonymous upvote reads" on public.upvotes
+   for select to anon using (true);
+
+create policy "Allow anonymous upvote deletes" on public.upvotes
+   for delete to anon using (true);
+```
+
+### Reactions Table
+
+```sql
+create table if not exists public.reactions (
+   id bigserial primary key,
+   confession_id bigint references public.confessions(id) on delete cascade,
+   device_id text not null,
+   reaction_type text not null,
+   created_at timestamptz not null default now(),
+   unique(confession_id, device_id)
+);
+
+-- Enable Row Level Security
+alter table public.reactions enable row level security;
+
+-- Allow anonymous inserts
+create policy "Allow anonymous reaction inserts" on public.reactions
+   for insert to anon with check (true);
+
+-- Allow anonymous reads
+create policy "Allow anonymous reaction reads" on public.reactions
+   for select to anon using (true);
+
+-- Allow anonymous updates (for changing reactions)
+create policy "Allow anonymous reaction updates" on public.reactions
+   for update to anon using (true) with check (true);
+
+-- Allow anonymous deletes (for removing reactions)
+create policy "Allow anonymous reaction deletes" on public.reactions
+   for delete to anon using (true);
+```
+
+**Note**: Run all three table creation scripts in your Supabase SQL Editor to set up the complete database schema.
 
 ## Privacy by design
 
