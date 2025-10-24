@@ -1,6 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+    ActivityIndicator,
+    FlatList,
+    Modal,
+    Pressable,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getAnonDeviceName } from '../lib/deviceName';
 import { supabase } from '../lib/supabase';
@@ -11,8 +22,17 @@ interface Confession {
   content: string;
   device_name: string | null;
   upvote_count: number;
+  comment_count: number;
   reactions: Record<string, number>; 
   userReaction?: string; 
+}
+
+interface Comment {
+  id: number;
+  confession_id: number;
+  device_id: string;
+  content: string;
+  created_at: string;
 }
 
 export default function FeedScreen() {
@@ -24,6 +44,12 @@ export default function FeedScreen() {
   const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
   const [selectedConfessionId, setSelectedConfessionId] = useState<number | null>(null);
   const [expandedReactionPanel, setExpandedReactionPanel] = useState<number | null>(null);
+  
+  // Comment-related state
+  const [expandedComments, setExpandedComments] = useState<Set<number>>(new Set());
+  const [comments, setComments] = useState<Map<number, Comment[]>>(new Map());
+  const [newComment, setNewComment] = useState<Map<number, string>>(new Map());
+  const [loadingComments, setLoadingComments] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     getAnonDeviceName().then(setDeviceName);
@@ -220,6 +246,95 @@ export default function FeedScreen() {
     setExpandedReactionPanel(expandedReactionPanel === confessionId ? null : confessionId);
   };
 
+  // Comment functions
+  const toggleComments = async (confessionId: number) => {
+    const isExpanded = expandedComments.has(confessionId);
+    const newExpandedComments = new Set(expandedComments);
+    
+    if (isExpanded) {
+      newExpandedComments.delete(confessionId);
+    } else {
+      newExpandedComments.add(confessionId);
+      // Fetch comments if not already loaded
+      if (!comments.has(confessionId)) {
+        await fetchComments(confessionId);
+      }
+    }
+    setExpandedComments(newExpandedComments);
+  };
+
+  const fetchComments = async (confessionId: number) => {
+    setLoadingComments((prev) => new Set(prev).add(confessionId));
+    
+    const { data, error } = await supabase
+      .from('comments')
+      .select('*')
+      .eq('confession_id', confessionId)
+      .order('created_at', { ascending: true });
+
+    if (!error && data) {
+      setComments((prev) => new Map(prev).set(confessionId, data as Comment[]));
+    }
+    
+    setLoadingComments((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(confessionId);
+      return newSet;
+    });
+  };
+
+  const submitComment = async (confessionId: number) => {
+    const commentText = newComment.get(confessionId)?.trim();
+    if (!commentText || !deviceName) return;
+
+    // Optimistic UI update
+    const tempComment: Comment = {
+      id: Date.now(), // Temporary ID
+      confession_id: confessionId,
+      device_id: deviceName,
+      content: commentText,
+      created_at: new Date().toISOString(),
+    };
+
+    setComments((prev) => {
+      const existing = prev.get(confessionId) || [];
+      return new Map(prev).set(confessionId, [...existing, tempComment]);
+    });
+
+    setConfessions((prev) =>
+      prev.map((c) =>
+        c.id === confessionId ? { ...c, comment_count: c.comment_count + 1 } : c
+      )
+    );
+
+    setNewComment((prev) => {
+      const newMap = new Map(prev);
+      newMap.delete(confessionId);
+      return newMap;
+    });
+
+    // Persist to database
+    const { error } = await supabase.from('comments').insert({
+      confession_id: confessionId,
+      device_id: deviceName,
+      content: commentText,
+    });
+
+    if (error) {
+      console.error('Failed to submit comment:', error);
+      // Revert optimistic update on error
+      await fetchComments(confessionId);
+      await fetchConfessions();
+    } else {
+      // Refresh to get real ID
+      await fetchComments(confessionId);
+    }
+  };
+
+  const updateCommentInput = (confessionId: number, text: string) => {
+    setNewComment((prev) => new Map(prev).set(confessionId, text));
+  };
+
   const renderItem = ({ item }: { item: Confession }) => {
     const userReaction = userReactions.get(item.id);
     const hasUpvoted = upvotedIds.has(item.id);
@@ -315,6 +430,75 @@ export default function FeedScreen() {
               />
               <Text style={styles.toggleReactionText}>React</Text>
             </Pressable>
+          </View>
+
+          {/* Comments Section */}
+          <View style={styles.commentsSection}>
+            <Pressable
+              onPress={() => toggleComments(item.id)}
+              style={styles.viewCommentsButton}
+            >
+              <Ionicons name="chatbubble-outline" size={16} color="#666" />
+              <Text style={styles.viewCommentsText}>
+                {item.comment_count === 0
+                  ? 'Add a comment'
+                  : expandedComments.has(item.id)
+                  ? 'Hide comments'
+                  : `View ${item.comment_count} ${item.comment_count === 1 ? 'comment' : 'comments'}`}
+              </Text>
+            </Pressable>
+
+            {/* Comments List */}
+            {expandedComments.has(item.id) && (
+              <View style={styles.commentsListContainer}>
+                {loadingComments.has(item.id) ? (
+                  <ActivityIndicator size="small" color="#666" style={{ marginVertical: 12 }} />
+                ) : (
+                  <>
+                    {(comments.get(item.id) || []).map((comment) => (
+                      <View key={comment.id} style={styles.commentItem}>
+                        <View style={styles.commentHeader}>
+                          <Text style={styles.commentDeviceName}>
+                            {comment.device_id === deviceName ? 'You' : comment.device_id}
+                          </Text>
+                          <Text style={styles.commentTimestamp}>
+                            {new Date(comment.created_at).toLocaleString()}
+                          </Text>
+                        </View>
+                        <Text style={styles.commentContent}>{comment.content}</Text>
+                      </View>
+                    ))}
+
+                    {/* Comment Input */}
+                    <View style={styles.commentInputContainer}>
+                      <TextInput
+                        style={styles.commentInput}
+                        placeholder="Write a comment..."
+                        placeholderTextColor="#999"
+                        value={newComment.get(item.id) || ''}
+                        onChangeText={(text) => updateCommentInput(item.id, text)}
+                        maxLength={500}
+                        multiline
+                      />
+                      <Pressable
+                        onPress={() => submitComment(item.id)}
+                        disabled={!newComment.get(item.id)?.trim()}
+                        style={[
+                          styles.submitCommentButton,
+                          !newComment.get(item.id)?.trim() && styles.submitCommentButtonDisabled,
+                        ]}
+                      >
+                        <Ionicons
+                          name="send"
+                          size={20}
+                          color={newComment.get(item.id)?.trim() ? '#007AFF' : '#ccc'}
+                        />
+                      </Pressable>
+                    </View>
+                  </>
+                )}
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -571,5 +755,75 @@ const styles = StyleSheet.create({
   },
   emojiPickerEmoji: {
     fontSize: 32,
+  },
+  
+  // Comments styles
+  commentsSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  viewCommentsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  viewCommentsText: {
+    marginLeft: 6,
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  commentsListContainer: {
+    marginTop: 8,
+  },
+  commentItem: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  commentDeviceName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+  },
+  commentTimestamp: {
+    fontSize: 11,
+    color: '#999',
+  },
+  commentContent: {
+    fontSize: 14,
+    color: '#444',
+    lineHeight: 20,
+  },
+  commentInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  commentInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333',
+    maxHeight: 80,
+  },
+  submitCommentButton: {
+    marginLeft: 8,
+    padding: 4,
+  },
+  submitCommentButtonDisabled: {
+    opacity: 0.3,
   },
 });
