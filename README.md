@@ -2,34 +2,26 @@
 
 [![CI](https://github.com/akash-nath29/confessio/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Open Source](https://img.shields.io/badge/Open%20Source-%E2%9D%A4-red.svg)](https://github.com/akash-nath29/confessio)
 
-> 🎭 **An open-source, fully anonymous confession app** — Share your thoughts without fear of judgment.
+Fully anonymous confession app built with Expo (React Native) and Supabase. No login, no tracking. Post and read confessions with a local, non‑identifiable device codename.
 
-Confessio is a privacy-first, community-driven mobile app built with Expo (React Native) and Supabase. No login, no tracking, no data collection. Just honest, anonymous confessions.
+## Features
 
-## ✨ Features
+- Write a confession anonymously
+- Feed of all confessions (latest first)
+- Upvote system
+- Anonymous comments with collapsible UI
+- Emoji reactions (100+ emojis)
+- About page with privacy and T&C
+- Privacy by design: no auth, no analytics, no tracking
 
-- 📝 **Write Anonymously** - Post confessions without revealing your identity
-- 📱 **Feed** - Browse all confessions in chronological order
-- ⬆️ **Upvote System** - Vote on confessions you relate to
-- 💬 **Anonymous Comments** - Comment on confessions with Instagram-style collapsible UI
-- 😊 **Emoji Reactions** - React with any emoji (👍❤️😂 and 100+ more)
-- 🎨 **Clean UI** - Modern interface with expandable reaction panels
-- 🔒 **Privacy by Design** - No authentication, no analytics, no tracking
-- 📖 **About Page** - Transparent privacy policy and terms of service
+## Tech Stack
 
-## 🛠️ Tech Stack
+- Frontend: React Native (Expo)
+- Backend: Supabase (PostgreSQL)
+- Architecture: Client inserts via Supabase SDK
 
-- **Frontend**: React Native with Expo SDK ~54.0.16
-- **Backend**: Supabase (PostgreSQL + Row Level Security)
-- **Navigation**: Expo Router (file-based)
-- **Storage**: expo-secure-store (iOS Keychain / Android Keystore)
-- **Build**: EAS Build (Android APK + iOS)
-- **CI/CD**: GitHub Actions
-
-## 🚀 Quick Start
+## Quick start (Windows PowerShell)
 
 ```powershell
 # 1) Install dependencies
@@ -202,11 +194,9 @@ create trigger on_comment_delete
 ```
 
 **Important Notes**:
-- **For new setups**: Run all SQL scripts above in your Supabase SQL Editor
-- **For existing projects**: Use the migration file `migrations/comments-migration.sql`
-- **Safety**: The migration is 100% non-destructive - it only adds new structures
-- **Supabase Warning**: You'll see a warning about "destructive code" - this is normal for ALTER TABLE statements. See `migrations/MIGRATION_SAFETY.md` for details.
-- **Quick Reference**: See `migrations/QUICK_REFERENCE.md` for a visual guide
+- For new setups: Run all SQL scripts above in your Supabase SQL Editor
+- For existing projects with data: The ALTER TABLE and CREATE statements are safe and non-destructive
+- Supabase may show a warning about "destructive code" for ALTER TABLE statements - this is a precautionary warning and safe to proceed
 
 ## Privacy by design
 
@@ -222,15 +212,13 @@ create trigger on_comment_delete
 - `app/about.tsx` → About + Privacy + T&C
 - `lib/supabase.js` → Supabase client (set your URL and anon key)
 - `lib/deviceName.js` → Generates and persists a random, non‑identifiable codename
-- `migrations/comments-migration.sql` → SQL migration for comments feature
 
 ## Future ideas
 
 - Filters (funny / emotional / dark)
 - AI moderation
 - Hashtags / topics
-- Anonymous chat replies
-- Comment threading (reply to comments)
+- Comment threading (replies to comments)
 
 ## Notes
 
@@ -246,5 +234,5 @@ If you discover a security vulnerability, please follow our [Security Policy](SE
 
 ## License
 
-MIT © Akash Nath
+MIT © [Akash Nath](https://aksn.lol)
 
