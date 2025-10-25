@@ -17,6 +17,16 @@ const accentColors: { key: AccentColor; label: string; color: string }[] = [
   { key: 'green', label: 'Green', color: '#4caf50' },
   { key: 'pink', label: 'Pink', color: '#e91e63' },
   { key: 'orange', label: 'Orange', color: '#ff9800' },
+  { key: 'red', label: 'Red', color: '#f44336' },
+  { key: 'teal', label: 'Teal', color: '#009688' },
+  { key: 'yellow', label: 'Yellow', color: '#ffeb3b' },
+  { key: 'indigo', label: 'Indigo', color: '#3f51b5' },
+  { key: 'cyan', label: 'Cyan', color: '#00bcd4' },
+  { key: 'rose', label: 'Rose', color: '#e91e63' },
+  { key: 'emerald', label: 'Emerald', color: '#10b981' },
+  { key: 'amber', label: 'Amber', color: '#f59e0b' },
+  { key: 'violet', label: 'Violet', color: '#8b5cf6' },
+  { key: 'lime', label: 'Lime', color: '#84cc16' },
 ];
 
 export default function SettingsScreen() {
@@ -210,10 +220,10 @@ const styles = (theme: any) => StyleSheet.create({
     justifyContent: 'space-between',
   },
   colorOption: {
-    width: '48%',
+    width: '31%',
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: 10,
     borderRadius: 8,
     marginBottom: 8,
     backgroundColor: theme.colors.surfaceSecondary,
@@ -221,13 +231,13 @@ const styles = (theme: any) => StyleSheet.create({
     borderColor: theme.colors.border,
   },
   colorDot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    marginRight: 8,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginRight: 6,
   },
   colorLabel: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
     flex: 1,
     color: theme.colors.text,

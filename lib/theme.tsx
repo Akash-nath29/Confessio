@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Appearance, ColorSchemeName } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type AccentColor = 'blue' | 'purple' | 'green' | 'pink' | 'orange';
+export type AccentColor = 'blue' | 'purple' | 'green' | 'pink' | 'orange' | 'red' | 'teal' | 'yellow' | 'indigo' | 'cyan' | 'rose' | 'emerald' | 'amber' | 'violet' | 'lime';
 
 export interface ThemeColors {
   // Base colors
@@ -41,6 +41,16 @@ const accentColorMap: Record<AccentColor, { primary: string; light: string; dark
   green: { primary: '#4caf50', light: '#e8f5e8', dark: '#388e3c' },
   pink: { primary: '#e91e63', light: '#fce4ec', dark: '#c2185b' },
   orange: { primary: '#ff9800', light: '#fff3e0', dark: '#f57c00' },
+  red: { primary: '#f44336', light: '#ffebee', dark: '#d32f2f' },
+  teal: { primary: '#009688', light: '#e0f2f1', dark: '#00796b' },
+  yellow: { primary: '#ffeb3b', light: '#fffde7', dark: '#f9a825' },
+  indigo: { primary: '#3f51b5', light: '#e8eaf6', dark: '#303f9f' },
+  cyan: { primary: '#00bcd4', light: '#e0f7fa', dark: '#0097a7' },
+  rose: { primary: '#e91e63', light: '#fce4ec', dark: '#c2185b' },
+  emerald: { primary: '#10b981', light: '#ecfdf5', dark: '#059669' },
+  amber: { primary: '#f59e0b', light: '#fffbeb', dark: '#d97706' },
+  violet: { primary: '#8b5cf6', light: '#f3e8ff', dark: '#7c3aed' },
+  lime: { primary: '#84cc16', light: '#f7fee7', dark: '#65a30d' },
 };
 
 const createTheme = (isDark: boolean, accentColor: AccentColor): ThemeColors => {
