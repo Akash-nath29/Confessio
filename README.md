@@ -9,9 +9,9 @@ Fully anonymous confession app built with Expo (React Native) and Supabase. No l
 
 - Write a confession anonymously
 - Feed of all confessions (latest first)
-- Upvote system
-- Anonymous comments with collapsible UI
-- Emoji reactions (100+ emojis)
+- **Upvote system** - Vote on confessions you relate to
+- **Emoji reactions** - React with any emoji (👍❤️😂 and 100+ more)
+- **Collapsible UI** - Clean interface with expandable reaction panel
 - About page with privacy and T&C
 - Privacy by design: no auth, no analytics, no tracking
 
@@ -124,79 +124,7 @@ create policy "Allow anonymous reaction deletes" on public.reactions
    for delete to anon using (true);
 ```
 
-### Comments Table
-
-```sql
-create table if not exists public.comments (
-  id bigserial primary key,
-  confession_id bigint not null references public.confessions(id) on delete cascade,
-  device_id text not null,
-  content text not null,
-  created_at timestamptz not null default now(),
-  constraint comment_length_check check (length(content) <= 500)
-);
-
--- Create indexes for faster lookups
-create index if not exists idx_comments_confession_id on public.comments(confession_id);
-create index if not exists idx_comments_device_id on public.comments(device_id);
-create index if not exists idx_comments_created_at on public.comments(created_at desc);
-
--- Enable Row Level Security
-alter table public.comments enable row level security;
-
--- Allow anonymous comment inserts
-create policy "Allow anonymous comment inserts" on public.comments
-  for insert to anon with check (true);
-
--- Allow anonymous comment reads
-create policy "Allow anonymous comment reads" on public.comments
-  for select to anon using (true);
-
--- Allow users to delete their own comments (optional)
-create policy "Allow anonymous comment deletes" on public.comments
-  for delete to anon using (true);
-
--- Add comment_count column to confessions table
-alter table public.confessions add column if not exists comment_count bigint not null default 0;
-
--- Create triggers to auto-update comment_count
-create or replace function increment_comment_count()
-returns trigger as $$
-begin
-  update public.confessions
-  set comment_count = comment_count + 1
-  where id = new.confession_id;
-  return new;
-end;
-$$ language plpgsql security definer;
-
-create or replace function decrement_comment_count()
-returns trigger as $$
-begin
-  update public.confessions
-  set comment_count = comment_count - 1
-  where id = old.confession_id;
-  return old;
-end;
-$$ language plpgsql security definer;
-
-drop trigger if exists on_comment_insert on public.comments;
-create trigger on_comment_insert
-  after insert on public.comments
-  for each row
-  execute function increment_comment_count();
-
-drop trigger if exists on_comment_delete on public.comments;
-create trigger on_comment_delete
-  after delete on public.comments
-  for each row
-  execute function decrement_comment_count();
-```
-
-**Important Notes**:
-- For new setups: Run all SQL scripts above in your Supabase SQL Editor
-- For existing projects with data: The ALTER TABLE and CREATE statements are safe and non-destructive
-- Supabase may show a warning about "destructive code" for ALTER TABLE statements - this is a precautionary warning and safe to proceed
+**Note**: Run all three table creation scripts in your Supabase SQL Editor to set up the complete database schema.
 
 ## Privacy by design
 
@@ -207,18 +135,19 @@ create trigger on_comment_delete
 
 ## Where things live
 
-- `app/write.tsx` → Write a confession (500 char limit)
-- `app/feed.tsx` → Confession feed with upvotes, reactions, and comments
+- `app/write.tsx` → Write a confession
+- `app/feed.tsx` → Confession feed (latest first)
 - `app/about.tsx` → About + Privacy + T&C
 - `lib/supabase.js` → Supabase client (set your URL and anon key)
 - `lib/deviceName.js` → Generates and persists a random, non‑identifiable codename
 
-## Future ideas
+## Future ideas (post‑MVP)
 
+- Voting on confessions
 - Filters (funny / emotional / dark)
 - AI moderation
 - Hashtags / topics
-- Comment threading (replies to comments)
+- Anonymous chat replies
 
 ## Notes
 
@@ -234,5 +163,5 @@ If you discover a security vulnerability, please follow our [Security Policy](SE
 
 ## License
 
-MIT © [Akash Nath](https://aksn.lol)
+MIT © Akash Nath
 

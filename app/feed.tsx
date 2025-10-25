@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getAnonDeviceName } from '../lib/deviceName';
 import { supabase } from '../lib/supabase';
+import { useTheme } from '../lib/theme';
 
 interface Confession {
   id: number;
@@ -36,6 +37,7 @@ interface Comment {
 }
 
 export default function FeedScreen() {
+  const { theme } = useTheme();
   const [confessions, setConfessions] = useState<Confession[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [userReactions, setUserReactions] = useState<Map<number, string>>(new Map());
@@ -346,44 +348,44 @@ export default function FeedScreen() {
       .sort(([_, a], [__, b]) => b - a);
 
     return (
-      <View style={styles.item}>
-        <View style={styles.upvoteSection}>
+      <View style={styles(theme).item}>
+        <View style={styles(theme).upvoteSection}>
           <Pressable
             onPress={() => handleUpvote(item.id)}
-            style={[styles.upvoteButton, hasUpvoted && styles.upvoteButtonActive]}
+            style={[styles(theme).upvoteButton, hasUpvoted && styles(theme).upvoteButtonActive]}
           >
             <Ionicons
               name={hasUpvoted ? 'arrow-up' : 'arrow-up-outline'}
               size={20}
-              color={hasUpvoted ? '#ff4500' : '#666'}
+              color={hasUpvoted ? theme.colors.upvoteActive : theme.colors.textSecondary}
             />
-            <Text style={[styles.upvoteCount, hasUpvoted && styles.upvoteCountActive]}>
+            <Text style={[styles(theme).upvoteCount, hasUpvoted && styles(theme).upvoteCountActive]}>
               {item.upvote_count}
             </Text>
           </Pressable>
         </View>
-        <View style={styles.contentContainer}>
-          <Text style={styles.content}>{item.content}</Text>
-          <Text style={styles.meta}>
+        <View style={styles(theme).contentContainer}>
+          <Text style={styles(theme).content}>{item.content}</Text>
+          <Text style={styles(theme).meta}>
             — {item.device_name || 'Anonymous'} at {new Date(item.created_at).toLocaleString()}
           </Text>
           
           {/* Show existing reactions with counts */}
           {allReactionsWithCounts.length > 0 && (
-            <View style={styles.existingReactions}>
+            <View style={styles(theme).existingReactions}>
               {allReactionsWithCounts.map(([emoji, count]) => (
                 <Pressable
                   key={emoji}
                   onPress={() => handleReaction(item.id, emoji)}
                   style={[
-                    styles.existingReactionBubble,
-                    userReaction === emoji && styles.existingReactionBubbleActive
+                    styles(theme).existingReactionBubble,
+                    userReaction === emoji && styles(theme).existingReactionBubbleActive
                   ]}
                 >
-                  <Text style={styles.existingReactionEmoji}>{emoji}</Text>
+                  <Text style={styles(theme).existingReactionEmoji}>{emoji}</Text>
                   <Text style={[
-                    styles.existingReactionCount,
-                    userReaction === emoji && styles.existingReactionCountActive
+                    styles(theme).existingReactionCount,
+                    userReaction === emoji && styles(theme).existingReactionCountActive
                   ]}>{count}</Text>
                 </Pressable>
               ))}
@@ -392,7 +394,7 @@ export default function FeedScreen() {
           
           {/* Collapsible Quick reaction buttons */}
           {isPanelExpanded && (
-            <View style={styles.quickReactionsBar}>
+            <View style={styles(theme).quickReactionsBar}>
               {quickEmojis.map((emoji) => {
                 const isSelected = userReaction === emoji;
                 return (
@@ -402,44 +404,44 @@ export default function FeedScreen() {
                       handleReaction(item.id, emoji);
                       setExpandedReactionPanel(null);
                     }}
-                    style={[styles.quickReactionButton, isSelected && styles.quickReactionButtonActive]}
+                    style={[styles(theme).quickReactionButton, isSelected && styles(theme).quickReactionButtonActive]}
                   >
-                    <Text style={styles.quickReactionEmoji}>{emoji}</Text>
+                    <Text style={styles(theme).quickReactionEmoji}>{emoji}</Text>
                   </Pressable>
                 );
               })}
               <Pressable
                 onPress={() => openEmojiPicker(item.id)}
-                style={styles.moreReactionsButton}
+                style={styles(theme).moreReactionsButton}
               >
-                <Ionicons name="add-circle-outline" size={24} color="#666" />
+                <Ionicons name="add-circle-outline" size={24} color={theme.colors.textSecondary} />
               </Pressable>
             </View>
           )}
           
           {/* Toggle button in bottom-right corner */}
-          <View style={styles.toggleButtonContainer}>
+          <View style={styles(theme).toggleButtonContainer}>
             <Pressable
               onPress={() => toggleReactionPanel(item.id)}
-              style={styles.toggleReactionButton}
+              style={styles(theme).toggleReactionButton}
             >
               <Ionicons 
                 name={isPanelExpanded ? 'chevron-up' : 'chevron-down'} 
                 size={18} 
-                color="#666" 
+                color={theme.colors.textSecondary} 
               />
-              <Text style={styles.toggleReactionText}>React</Text>
+              <Text style={styles(theme).toggleReactionText}>React</Text>
             </Pressable>
           </View>
 
           {/* Comments Section */}
-          <View style={styles.commentsSection}>
+          <View style={styles(theme).commentsSection}>
             <Pressable
               onPress={() => toggleComments(item.id)}
-              style={styles.viewCommentsButton}
+              style={styles(theme).viewCommentsButton}
             >
-              <Ionicons name="chatbubble-outline" size={16} color="#666" />
-              <Text style={styles.viewCommentsText}>
+              <Ionicons name="chatbubble-outline" size={16} color={theme.colors.textSecondary} />
+              <Text style={styles(theme).viewCommentsText}>
                 {item.comment_count === 0
                   ? 'Add a comment'
                   : expandedComments.has(item.id)
@@ -450,31 +452,31 @@ export default function FeedScreen() {
 
             {/* Comments List */}
             {expandedComments.has(item.id) && (
-              <View style={styles.commentsListContainer}>
+              <View style={styles(theme).commentsListContainer}>
                 {loadingComments.has(item.id) ? (
-                  <ActivityIndicator size="small" color="#666" style={{ marginVertical: 12 }} />
+                  <ActivityIndicator size="small" color={theme.colors.textSecondary} style={{ marginVertical: 12 }} />
                 ) : (
                   <>
                     {(comments.get(item.id) || []).map((comment) => (
-                      <View key={comment.id} style={styles.commentItem}>
-                        <View style={styles.commentHeader}>
-                          <Text style={styles.commentDeviceName}>
+                      <View key={comment.id} style={styles(theme).commentItem}>
+                        <View style={styles(theme).commentHeader}>
+                          <Text style={styles(theme).commentDeviceName}>
                             {comment.device_id === deviceName ? 'You' : comment.device_id}
                           </Text>
-                          <Text style={styles.commentTimestamp}>
+                          <Text style={styles(theme).commentTimestamp}>
                             {new Date(comment.created_at).toLocaleString()}
                           </Text>
                         </View>
-                        <Text style={styles.commentContent}>{comment.content}</Text>
+                        <Text style={styles(theme).commentContent}>{comment.content}</Text>
                       </View>
                     ))}
 
                     {/* Comment Input */}
-                    <View style={styles.commentInputContainer}>
+                    <View style={styles(theme).commentInputContainer}>
                       <TextInput
-                        style={styles.commentInput}
+                        style={styles(theme).commentInput}
                         placeholder="Write a comment..."
-                        placeholderTextColor="#999"
+                        placeholderTextColor={theme.colors.textSecondary}
                         value={newComment.get(item.id) || ''}
                         onChangeText={(text) => updateCommentInput(item.id, text)}
                         maxLength={500}
@@ -484,14 +486,14 @@ export default function FeedScreen() {
                         onPress={() => submitComment(item.id)}
                         disabled={!newComment.get(item.id)?.trim()}
                         style={[
-                          styles.submitCommentButton,
-                          !newComment.get(item.id)?.trim() && styles.submitCommentButtonDisabled,
+                          styles(theme).submitCommentButton,
+                          !newComment.get(item.id)?.trim() && styles(theme).submitCommentButtonDisabled,
                         ]}
                       >
                         <Ionicons
                           name="send"
                           size={20}
-                          color={newComment.get(item.id)?.trim() ? '#007AFF' : '#ccc'}
+                          color={newComment.get(item.id)?.trim() ? theme.colors.primary : theme.colors.textSecondary}
                         />
                       </Pressable>
                     </View>
@@ -527,16 +529,16 @@ export default function FeedScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles(theme).safeArea}>
       <FlatList
         data={confessions}
         keyExtractor={(item) => String(item.id)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={fetchConfessions} />}
         renderItem={renderItem}
         contentContainerStyle={
-          confessions.length === 0 ? [styles.listContent, styles.emptyContainer] : styles.listContent
+          confessions.length === 0 ? [styles(theme).listContent, styles(theme).emptyContainer] : styles(theme).listContent
         }
-        ListEmptyComponent={<Text style={styles.emptyText}>No confessions yet. Be the first!</Text>}
+        ListEmptyComponent={<Text style={styles(theme).emptyText}>No confessions yet. Be the first!</Text>}
       />
       
       {/* Emoji Picker Modal */}
@@ -546,22 +548,22 @@ export default function FeedScreen() {
         animationType="slide"
         onRequestClose={() => setEmojiPickerVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.emojiPickerContainer}>
-            <View style={styles.emojiPickerHeader}>
-              <Text style={styles.emojiPickerTitle}>Choose a reaction</Text>
+        <View style={styles(theme).modalOverlay}>
+          <View style={styles(theme).emojiPickerContainer}>
+            <View style={styles(theme).emojiPickerHeader}>
+              <Text style={styles(theme).emojiPickerTitle}>Choose a reaction</Text>
               <Pressable onPress={() => setEmojiPickerVisible(false)}>
-                <Ionicons name="close" size={28} color="#333" />
+                <Ionicons name="close" size={28} color={theme.colors.text} />
               </Pressable>
             </View>
-            <ScrollView contentContainerStyle={styles.emojiGrid}>
+            <ScrollView contentContainerStyle={styles(theme).emojiGrid}>
               {allEmojis.map((emoji) => (
                 <Pressable
                   key={emoji}
                   onPress={() => selectEmojiFromPicker(emoji)}
-                  style={styles.emojiPickerButton}
+                  style={styles(theme).emojiPickerButton}
                 >
-                  <Text style={styles.emojiPickerEmoji}>{emoji}</Text>
+                  <Text style={styles(theme).emojiPickerEmoji}>{emoji}</Text>
                 </Pressable>
               ))}
             </ScrollView>
@@ -572,15 +574,15 @@ export default function FeedScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#f7f7f7' },
+const styles = (theme: any) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: theme.colors.background },
   listContent: { padding: 16 },
   item: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: theme.colors.border,
     shadowColor: '#000',
     shadowOpacity: 0.04,
     shadowRadius: 6,
@@ -600,19 +602,19 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 8,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.colors.surfaceSecondary,
   },
   upvoteButtonActive: {
-    backgroundColor: '#ffe8dc',
+    backgroundColor: theme.colors.primaryLight,
   },
   upvoteCount: {
     fontSize: 13,
     fontWeight: '600',
     marginTop: 4,
-    color: '#666',
+    color: theme.colors.textSecondary,
   },
   upvoteCountActive: {
-    color: '#ff4500',
+    color: theme.colors.upvoteActive,
   },
   contentContainer: {
     flex: 1,
@@ -620,12 +622,12 @@ const styles = StyleSheet.create({
   },
   content: { 
     fontSize: 16, 
-    color: '#111',
+    color: theme.colors.text,
     marginBottom: 8,
   },
   meta: { 
     fontSize: 12, 
-    color: '#666', 
+    color: theme.colors.textSecondary, 
     marginBottom: 10,
   },
   existingReactions: {
@@ -636,7 +638,7 @@ const styles = StyleSheet.create({
   existingReactionBubble: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.colors.surfaceSecondary,
     borderRadius: 16,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -644,9 +646,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   existingReactionBubbleActive: {
-    backgroundColor: '#e3f2fd',
+    backgroundColor: theme.colors.primaryLight,
     borderWidth: 1,
-    borderColor: '#2196F3',
+    borderColor: theme.colors.primary,
   },
   existingReactionEmoji: {
     fontSize: 16,
@@ -655,10 +657,10 @@ const styles = StyleSheet.create({
   existingReactionCount: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#666',
+    color: theme.colors.textSecondary,
   },
   existingReactionCountActive: {
-    color: '#2196F3',
+    color: theme.colors.primary,
   },
   quickReactionsBar: {
     flexDirection: 'row',
@@ -666,7 +668,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 8,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: theme.colors.borderLight,
     marginBottom: 4,
   },
   toggleButtonContainer: {
@@ -679,11 +681,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 12,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.colors.surfaceSecondary,
   },
   toggleReactionText: {
     fontSize: 12,
-    color: '#666',
+    color: theme.colors.textSecondary,
     marginLeft: 4,
     fontWeight: '500',
   },
@@ -696,7 +698,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   quickReactionButtonActive: {
-    backgroundColor: '#e3f2fd',
+    backgroundColor: theme.colors.primaryLight,
   },
   quickReactionEmoji: {
     fontSize: 24,
@@ -714,16 +716,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center', 
     alignItems: 'center' 
   },
-  emptyText: { color: '#888' },
+  emptyText: { color: theme.colors.textSecondary },
   
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.isPureBlack ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   emojiPickerContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '70%',
@@ -735,12 +737,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: theme.colors.border,
   },
   emojiPickerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text,
   },
   emojiGrid: {
     flexDirection: 'row',
@@ -762,7 +764,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: theme.colors.borderLight,
   },
   viewCommentsButton: {
     flexDirection: 'row',
@@ -772,14 +774,14 @@ const styles = StyleSheet.create({
   viewCommentsText: {
     marginLeft: 6,
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.textSecondary,
     fontWeight: '500',
   },
   commentsListContainer: {
     marginTop: 8,
   },
   commentItem: {
-    backgroundColor: '#f9f9f9',
+    backgroundColor: theme.colors.surfaceSecondary,
     borderRadius: 8,
     padding: 10,
     marginBottom: 8,
@@ -793,22 +795,22 @@ const styles = StyleSheet.create({
   commentDeviceName: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text,
   },
   commentTimestamp: {
     fontSize: 11,
-    color: '#999',
+    color: theme.colors.textSecondary,
   },
   commentContent: {
     fontSize: 14,
-    color: '#444',
+    color: theme.colors.textSecondary,
     lineHeight: 20,
   },
   commentInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 8,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: theme.colors.surfaceSecondary,
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -816,7 +818,7 @@ const styles = StyleSheet.create({
   commentInput: {
     flex: 1,
     fontSize: 14,
-    color: '#333',
+    color: theme.colors.text,
     maxHeight: 80,
   },
   submitCommentButton: {
