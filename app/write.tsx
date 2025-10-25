@@ -81,7 +81,12 @@ export default function WriteScreen() {
               pressed && styles(theme).buttonPressed,
             ]}
           >
-            <Text style={styles(theme).buttonText}>{submitting ? 'Submitting…' : 'Confess'}</Text>
+            <Text style={[
+              styles(theme).buttonText,
+              (submitting || !content.trim()) && styles(theme).buttonTextDisabled
+            ]}>
+              {submitting ? 'Submitting…' : 'Confess'}
+            </Text>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -120,6 +125,13 @@ const styles = (theme: any) => StyleSheet.create({
     justifyContent: 'center',
   },
   buttonPressed: { opacity: 0.9 },
-  buttonDisabled: { backgroundColor: theme.colors.border },
+  buttonDisabled: { 
+    backgroundColor: theme.isDark ? '#404040' : '#d1d5db',
+    borderWidth: 1,
+    borderColor: theme.colors.borderLight,
+  },
   buttonText: { color: theme.colors.surface, fontWeight: '700', fontSize: 16 },
+  buttonTextDisabled: { 
+    color: theme.isDark ? '#9ca3af' : '#6b7280' 
+  },
 });
