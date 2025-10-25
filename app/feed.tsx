@@ -721,7 +721,7 @@ const styles = (theme: any) => StyleSheet.create({
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.isPureBlack ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   emojiPickerContainer: {

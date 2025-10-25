@@ -30,7 +30,7 @@ const accentColors: { key: AccentColor; label: string; color: string }[] = [
 ];
 
 export default function SettingsScreen() {
-  const { theme, toggleTheme, setAccentColor, isSystemTheme, setSystemTheme } = useTheme();
+  const { theme, toggleTheme, setAccentColor, isSystemTheme, setSystemTheme, isPureBlack, setPureBlack } = useTheme();
 
   const handleAccentColorChange = (color: AccentColor) => {
     setAccentColor(color);
@@ -81,6 +81,27 @@ export default function SettingsScreen() {
                 onValueChange={toggleTheme}
                 trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
                 thumbColor={theme.isDark ? theme.colors.primary : theme.colors.textSecondary}
+              />
+            </View>
+          )}
+
+          {/* Pure Black Mode Toggle */}
+          {theme.isDark && !isSystemTheme && (
+            <View style={styles(theme).settingRow}>
+              <View style={styles(theme).settingInfo}>
+                <Ionicons name="contrast-outline" size={20} color={theme.colors.textSecondary} />
+                <View style={styles(theme).settingText}>
+                  <Text style={styles(theme).settingLabel}>AMOLED Mode</Text>
+                  <Text style={styles(theme).settingDescription}>
+                    Pure black background for OLED displays
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={isPureBlack}
+                onValueChange={setPureBlack}
+                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+                thumbColor={isPureBlack ? theme.colors.primary : theme.colors.textSecondary}
               />
             </View>
           )}

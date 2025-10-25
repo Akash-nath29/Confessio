@@ -31,6 +31,7 @@ export interface ThemeColors {
 
 export interface Theme {
   isDark: boolean;
+  isPureBlack: boolean;
   accentColor: AccentColor;
   colors: ThemeColors;
 }
@@ -53,18 +54,23 @@ const accentColorMap: Record<AccentColor, { primary: string; light: string; dark
   lime: { primary: '#84cc16', light: '#f7fee7', dark: '#65a30d' },
 };
 
-const createTheme = (isDark: boolean, accentColor: AccentColor): ThemeColors => {
+const createTheme = (isDark: boolean, accentColor: AccentColor, isPureBlack: boolean): ThemeColors => {
   const accent = accentColorMap[accentColor];
 
   if (isDark) {
+    const backgroundColor = isPureBlack ? '#000000' : '#121212';
+    // Keep surfaces as dark gray even in AMOLED mode for contrast
+    const surfaceColor = '#1e1e1e';
+    const surfaceSecondaryColor = '#2a2a2a';
+
     return {
-      background: '#121212',
-      surface: '#1e1e1e',
-      surfaceSecondary: '#2a2a2a',
+      background: backgroundColor,
+      surface: surfaceColor,
+      surfaceSecondary: surfaceSecondaryColor,
       text: '#ffffff',
       textSecondary: '#b0b0b0',
-      border: '#333333',
-      borderLight: '#404040',
+      border: isPureBlack ? '#1a1a1a' : '#333333',
+      borderLight: isPureBlack ? '#262626' : '#404040',
       primary: accent.primary,
       primaryLight: accent.light,
       primaryDark: accent.dark,
@@ -101,6 +107,8 @@ interface ThemeContextType {
   setAccentColor: (color: AccentColor) => void;
   isSystemTheme: boolean;
   setSystemTheme: (useSystem: boolean) => void;
+  isPureBlack: boolean;
+  setPureBlack: (pureBlack: boolean) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -113,6 +121,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [isDark, setIsDark] = useState(false);
   const [accentColor, setAccentColor] = useState<AccentColor>('blue');
   const [isSystemTheme, setIsSystemTheme] = useState(true);
+  const [isPureBlack, setIsPureBlack] = useState(false);
   const [systemTheme, setSystemTheme] = useState<ColorSchemeName>(Appearance.getColorScheme());
 
   // Load saved preferences
@@ -122,6 +131,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         const savedIsSystemTheme = await AsyncStorage.getItem('isSystemTheme');
         const savedAccentColor = await AsyncStorage.getItem('accentColor');
         const savedIsDark = await AsyncStorage.getItem('isDark');
+        const savedIsPureBlack = await AsyncStorage.getItem('isPureBlack');
 
         if (savedIsSystemTheme !== null) {
           setIsSystemTheme(JSON.parse(savedIsSystemTheme));
@@ -131,6 +141,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         }
         if (savedIsDark !== null && !JSON.parse(savedIsSystemTheme || 'true')) {
           setIsDark(JSON.parse(savedIsDark));
+        }
+        if (savedIsPureBlack !== null) {
+          setIsPureBlack(JSON.parse(savedIsPureBlack));
         }
       } catch (error) {
         console.error('Error loading theme preferences:', error);
@@ -153,8 +166,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const currentIsDark = isSystemTheme ? systemTheme === 'dark' : isDark;
   const theme: Theme = {
     isDark: currentIsDark,
+    isPureBlack,
     accentColor,
-    colors: createTheme(currentIsDark, accentColor),
+    colors: createTheme(currentIsDark, accentColor, isPureBlack),
   };
 
   const toggleTheme = async () => {
@@ -185,6 +199,15 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     }
   };
 
+  const handleSetPureBlack = async (pureBlack: boolean) => {
+    setIsPureBlack(pureBlack);
+    try {
+      await AsyncStorage.setItem('isPureBlack', JSON.stringify(pureBlack));
+    } catch (error) {
+      console.error('Error saving pure black preference:', error);
+    }
+  };
+
   return (
     <ThemeContext.Provider
       value={{
@@ -193,6 +216,8 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         setAccentColor: handleSetAccentColor,
         isSystemTheme,
         setSystemTheme: handleSetSystemTheme,
+        isPureBlack,
+        setPureBlack: handleSetPureBlack,
       }}
     >
       {children}
